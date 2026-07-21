@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, Snowflake, ChevronDown, Globe } from 'lucide-react';
+import { Menu, X, Snowflake, ChevronDown, Globe, ShoppingBag } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
 import { LANGUAGES, type Language } from '../i18n/translations';
+import { useCart } from '../context/CartContext';
 
 export default function Header() {
   const { t, lang, setLang } = useI18n();
+  const { itemCount, openCart } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -98,6 +100,22 @@ export default function Header() {
                 </>
               )}
             </div>
+
+            {/* Cart */}
+            <button
+              onClick={openCart}
+              className={`relative p-2 rounded-lg transition-colors ${
+                scrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'
+              }`}
+              aria-label="Open cart"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 min-w-[18px] px-1 flex items-center justify-center rounded-full bg-accent-500 text-white text-[10px] font-bold">
+                  {itemCount}
+                </span>
+              )}
+            </button>
 
             {/* CTA */}
             <a

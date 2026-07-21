@@ -1,14 +1,22 @@
-import { Check, ArrowRight, Snowflake, Zap, Ruler, Wind, Volume2, Wifi, Shield } from 'lucide-react';
+import { Check, ArrowRight, Snowflake, Zap, Ruler, Wind, Volume2, Wifi, Shield, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/I18nContext';
-import { PRODUCTS } from '../data/products';
-import { getShopifyLink, trackProductView, trackPurchase } from '../lib/tracking';
+import { useShopifyProducts } from '../hooks/useShopifyProducts';
+import { useCart } from '../context/CartContext';
+import { trackProductView, trackPurchase } from '../lib/tracking';
 
 export default function Products() {
   const { t, lang, formatPrice } = useI18n();
+  const { products: PRODUCTS } = useShopifyProducts();
+  const { addToCart, isLoading: cartLoading } = useCart();
 
-  const handleBuy = (productId: string, price: number) => {
+  const handleBuy = (productId: string, price: number, variantId: string | null) => {
     trackPurchase(productId, price);
-    window.open(getShopifyLink(productId), '_blank', 'noopener,noreferrer');
+    if (variantId) {
+      addToCart(variantId);
+    } else {
+      // Shopify not connected yet for this product — fall back so the button never silently fails
+      console.warn(`No Shopify variant found for product "${productId}" — check the handle matches Shopify.`);
+    }
   };
 
   const handleView = (productId: string, price: number) => {
@@ -34,10 +42,13 @@ export default function Products() {
 
         {/* Products grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PRODUCTS.map((product, i) => (
+          {PRODUCTS.map((product, i) => {
+            const displayPrice = product.liveePrice ?? product.price;
+            const soldOut = !product.availableForSale;
+            return (
             <div
               key={product.id}
-              onMouseEnter={() => handleView(product.id, product.price)}
+              onMouseEnter={() => handleView(product.id, displayPrice)}
               className="group relative flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-brand-500/10 transition-all duration-500 hover:-translate-y-1 animate-fade-in-up"
               style={{ animationDelay: `${i * 0.1}s` }}
             >
@@ -111,7 +122,7 @@ export default function Products() {
                     <div>
                       <div className="text-[10px] text-gray-400 uppercase tracking-wider">{t('productFrom')}</div>
                       <div className="font-display font-bold text-2xl text-brand-950">
-                        {formatPrice(product.price)}
+                        {formatPrice(displayPrice)}
                       </div>
                     </div>
                     <div className="text-right">
@@ -124,16 +135,26 @@ export default function Products() {
 
                   {/* CTA */}
                   <button
-                    onClick={() => handleBuy(product.id, product.price)}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-950 text-white font-semibold text-sm hover:bg-brand-800 hover:shadow-lg transition-all group/btn"
+                    onClick={() => handleBuy(product.id, displayPrice, product.variantId)}
+                    disabled={cartLoading || soldOut}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-950 text-white font-semibold text-sm hover:bg-brand-800 hover:shadow-lg transition-all group/btn disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {t('productBuy')}
-                    <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                    {cartLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : soldOut ? (
+                      'Sold out'
+                    ) : (
+                      <>
+                        {t('productBuy')}
+                        <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Comparison table */}
@@ -152,7 +173,9 @@ export default function Products() {
                 </tr>
               </thead>
               <tbody>
-                {PRODUCTS.map((product, i) => (
+                {PRODUCTS.map((product, i) => {
+                  const displayPrice = product.liveePrice ?? product.price;
+                  return (
                   <tr key={product.id} className={`border-b border-gray-100 hover:bg-brand-50/50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
                     <td className="p-4">
                       <div className="font-semibold text-brand-950 text-sm">{product.name}</div>
@@ -167,18 +190,20 @@ export default function Products() {
                     <td className="text-center p-4">
                       <span className="inline-block px-2 py-0.5 rounded bg-accent-100 text-accent-700 text-xs font-bold">{product.energyClass}</span>
                     </td>
-                    <td className="text-center p-4 font-display font-bold text-brand-950">{formatPrice(product.price)}</td>
+                    <td className="text-center p-4 font-display font-bold text-brand-950">{formatPrice(displayPrice)}</td>
                     <td className="text-center p-4 font-display font-bold text-accent-600">{formatPrice(product.installFee)}</td>
                     <td className="text-center p-4">
                       <button
-                        onClick={() => handleBuy(product.id, product.price)}
-                        className="px-3 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-semibold hover:bg-brand-600 transition-colors"
+                        onClick={() => handleBuy(product.id, displayPrice, product.variantId)}
+                        disabled={cartLoading || !product.availableForSale}
+                        className="px-3 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-semibold hover:bg-brand-600 transition-colors disabled:opacity-50"
                       >
                         {t('productBuy')}
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
